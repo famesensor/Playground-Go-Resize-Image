@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -47,10 +48,13 @@ func main() {
 			}
 			break
 		}
-		log.Printf("weight,height : %T\n", temp.Bounds().Max.Y)
-
-		_ = resizeImage(temp)
+		resizeFile := resizeImage(temp)
 		_ = resizeImageTwo(temp)
+
+		_, err = encodeImage(resizeFile, filetype[1])
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		return c.Status(200).JSON(&fiber.Map{"success": true})
 	})
@@ -77,8 +81,16 @@ func resizeImage(file image.Image) image.Image {
 	// lib -> nfnt/resize
 	// resize to width 1000 using Lanczos resampling
 	// and preserve aspect ratio
-	resizeImage := resize.Resize(1000, 0, file, resize.Lanczos3)
-	thumbnail := resize.Thumbnail(1000, 1000, file, resize.Lanczos3)
+	var resizeImage, resizeImageTwo image.Image
+	if file.Bounds().Dy() > file.Bounds().Dx() {
+		resizeImage = resize.Resize(0, 1000, file, resize.Lanczos3)
+		resizeImageTwo = resize.Resize(0, 2000, file, resize.Lanczos3)
+		// thumbnail = resize.Thumbnail(1000, 1000, file, resize.Lanczos3)
+	} else {
+		resizeImage = resize.Resize(1000, 0, file, resize.Lanczos3)
+		resizeImageTwo = resize.Resize(2000, 0, file, resize.Lanczos3)
+		// thumbnail = resize.Thumbnail(1000, 1000, file, resize.Lanczos3)
+	}
 
 	out, err := os.Create("test_resized_lanczos_0.jpg")
 	if err != nil {
@@ -86,15 +98,15 @@ func resizeImage(file image.Image) image.Image {
 	}
 	defer out.Close()
 
-	outThumbnail, err := os.Create("test_resized_thumbnail_lanczos_0.jpg")
+	outTwo, err := os.Create("test_resized_big_lanczos_0.jpg")
 	if err != nil {
 		log.Println("Error create thumbmnail file :", err)
 	}
-	defer outThumbnail.Close()
+	defer outTwo.Close()
 
 	// write new image to file
 	jpeg.Encode(out, resizeImage, nil)
-	jpeg.Encode(outThumbnail, thumbnail, nil)
+	jpeg.Encode(outTwo, resizeImageTwo, nil)
 
 	return resizeImage
 }
@@ -107,17 +119,45 @@ func resizeImageTwo(file image.Image) *image.NRGBA {
 	// 	log.Println("Error open file :", err)
 	// }
 
-	// // Resize srcImage to size = 128x128px using the Lanczos filter.
+	// // Resize image to size = 128x128px using the Lanczos filter.
 	// dstImage1000 := imaging.Resize(src, 1000, 1000, imaging.Lanczos)
 
-	// Resize srcImage to width = 800px preserving the aspect ratio.
-	dstImage1000 := imaging.Resize(file, 1000, 0, imaging.Lanczos)
+	dstImage, dstImageTwo := new(image.NRGBA), new(image.NRGBA)
+	if file.Bounds().Dy() > file.Bounds().Dx() {
+		// Resize image to height = 1000,2000px preserving the aspect ratio.
+		dstImage = imaging.Resize(file, 0, 1000, imaging.Lanczos)
+		dstImageTwo = imaging.Resize(file, 0, 2000, imaging.Lanczos)
+	} else {
+		// Resize image to width = 2000px preserving the aspect ratio.
+		dstImage = imaging.Resize(file, 1000, 0, imaging.Lanczos)
+		dstImageTwo = imaging.Resize(file, 2000, 0, imaging.Lanczos)
+	}
 
 	// Save the resulting image as JPEG.
-	err := imaging.Save(dstImage1000, "out_example_lanczos.jpg")
+	err := imaging.Save(dstImage, "out_example_lanczos.jpg")
 	if err != nil {
 		log.Fatalf("failed to save image: %v", err)
 	}
+	err = imaging.Save(dstImageTwo, "out_example_lanczos_big.jpg")
+	if err != nil {
+		log.Fatalf("failed to save image Two: %v", err)
+	}
+	return dstImage
+}
 
-	return dstImage1000
+func encodeImage(file image.Image, typesFile string) (*bytes.Buffer, error) {
+	encoded := &bytes.Buffer{}
+	switch typesFile {
+	case "jpeg":
+		if err := jpeg.Encode(encoded, file, nil); err != nil {
+			return nil, err
+		}
+		break
+	case "png":
+		if err := png.Encode(encoded, file); err != nil {
+			return nil, err
+		}
+		break
+	}
+	return encoded, nil
 }
