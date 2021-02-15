@@ -48,9 +48,11 @@ func main() {
 			}
 			break
 		}
+
 		resizeFile := resizeImage(temp)
 		_ = resizeImageTwo(temp)
 
+		// encoded image to bytes
 		_, err = encodeImage(resizeFile, filetype[1])
 		if err != nil {
 			log.Fatal(err)
@@ -64,6 +66,7 @@ func main() {
 	}
 }
 
+// lib -> nfnt/resize
 func resizeImage(file image.Image) image.Image {
 	// // open file
 	// file, err := os.Open("test0.jpg")
@@ -78,7 +81,6 @@ func resizeImage(file image.Image) image.Image {
 	// }
 	// file.Close()
 
-	// lib -> nfnt/resize
 	// resize to width 1000 using Lanczos resampling
 	// and preserve aspect ratio
 	var resizeImage, resizeImageTwo image.Image
@@ -111,8 +113,8 @@ func resizeImage(file image.Image) image.Image {
 	return resizeImage
 }
 
+// lib -> disintegration/imaging
 func resizeImageTwo(file image.Image) *image.NRGBA {
-	// // lib -> disintegration/imaging
 	// // Open a test image.
 	// src, err := imaging.Open("test0.jpg")
 	// if err != nil {
